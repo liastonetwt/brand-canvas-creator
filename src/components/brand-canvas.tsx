@@ -2,20 +2,27 @@ import { useEffect, useRef, useState, useCallback } from "react";
 
 export type DetectionMode = "combined" | "contrast" | "bright" | "dark";
 export type ShapeMode = "circle" | "square";
+export type Tool = "pixelate" | "brush" | "eraser" | "line" | "rect" | "circle";
+export type GeoPattern = "detection" | "radial" | "concentric" | "isometric" | "spiral" | "grid-dots";
+export type HeroLayout = "centered" | "off-axis-left" | "off-axis-right" | "stacked-bottom" | "split";
+export type ImageBlend = "normal" | "multiply" | "screen" | "difference" | "overlay";
 
 export interface Palette {
   id: string;
   label: string;
   bg: string;
   ink: string;
+  accent: string;
   preview: string[];
 }
 
 export const PALETTES: Palette[] = [
-  { id: "wob", label: "White on Black", bg: "#0a0a0a", ink: "#ffffff", preview: ["#000000", "#ffffff"] },
-  { id: "bow", label: "Black on White", bg: "#f3f1ec", ink: "#0a0a0a", preview: ["#ffffff", "#000000"] },
-  { id: "gold", label: "Gold on Dark", bg: "#0a0a0a", ink: "#d4a83a", preview: ["#000000", "#d4a83a"] },
-  { id: "green", label: "Green on Dark", bg: "#0a0a0a", ink: "#3ad48a", preview: ["#000000", "#3ad48a"] },
+  { id: "wob", label: "White on Black", bg: "#0a0a0a", ink: "#ffffff", accent: "#ff3b30", preview: ["#000000", "#ffffff"] },
+  { id: "bow", label: "Black on White", bg: "#f3f1ec", ink: "#0a0a0a", accent: "#ff3b30", preview: ["#ffffff", "#000000"] },
+  { id: "gold", label: "Gold on Dark", bg: "#0a0a0a", ink: "#d4a83a", accent: "#ffffff", preview: ["#000000", "#d4a83a"] },
+  { id: "green", label: "Green on Dark", bg: "#0a0a0a", ink: "#3ad48a", accent: "#ffffff", preview: ["#000000", "#3ad48a"] },
+  { id: "cyan", label: "Cyan on Navy", bg: "#0a1530", ink: "#5ad8ff", accent: "#ff3b81", preview: ["#0a1530", "#5ad8ff"] },
+  { id: "cream", label: "Ink on Cream", bg: "#ece4d2", ink: "#1a1410", accent: "#b03020", preview: ["#ece4d2", "#1a1410"] },
 ];
 
 export interface SizePreset { id: string; label: string; w: number; h: number }
@@ -25,20 +32,30 @@ export const SIZE_PRESETS: SizePreset[] = [
   { id: "story", label: "Instagram Story (1080×1920)", w: 1080, h: 1920 },
   { id: "sq", label: "Square (1080×1080)", w: 1080, h: 1080 },
   { id: "land", label: "Landscape 16:9 (1920×1080)", w: 1920, h: 1080 },
+  { id: "poster", label: "Poster A3 (1240×1754)", w: 1240, h: 1754 },
 ];
 
+export interface Stroke {
+  tool: "brush" | "eraser" | "line" | "rect" | "circle";
+  color: "ink" | "bg" | "accent";
+  size: number;
+  pts: { x: number; y: number }[];
+}
+
+export interface Zone { x: number; y: number; size: number }
+
 export interface BrandState {
-  // image
   imageSrc: string | null;
   imageOpacity: number;
-  // pixelate
+  imageInvert: boolean;
+  imageGrayscale: boolean;
+  imageBlend: ImageBlend;
+  imageScale: number;
   pixelSize: number;
   zoneSize: number;
   strokeOn: boolean;
-  // frame text
   frameText: string;
   frameTextSize: number;
-  // crosshair frame
   frameOn: boolean;
   frameSizePct: number;
   dashPattern: number;
@@ -47,7 +64,6 @@ export interface BrandState {
   starPoints: number;
   showCrosshair: boolean;
   crosshairOpacity: number;
-  // chain
   chainOn: boolean;
   chainCount: number;
   chainAngle: number;
@@ -55,14 +71,12 @@ export interface BrandState {
   sizeRatio: number;
   intersectionsOn: boolean;
   markerSize: number;
-  // detection
   detectionOn: boolean;
   detectionMode: DetectionMode;
   blockSize: number;
   threshold: number;
   maxCircles: number;
   minDistance: number;
-  // shapes
   shapeMode: ShapeMode;
   minRadius: number;
   maxRadius: number;
@@ -71,25 +85,44 @@ export interface BrandState {
   labelSize: number;
   overlayOpacity: number;
   showLabels: boolean;
-  // connections
   maxDistance: number;
   lineWeight: number;
-  // palette
   paletteId: string;
-  // size
   sizeId: string;
-  // texture
   textureSrc: string | null;
   textureOpacity: number;
-  // mode flag (which tab created this state)
+  // grid
+  gridOn: boolean;
+  gridSize: number;
+  gridOpacity: number;
+  // rings (concentric guides)
+  ringsOn: boolean;
+  ringsCount: number;
+  ringsSpacing: number;
+  // geo
+  geoPattern: GeoPattern;
+  geoDensity: number;
+  geoRotation: number;
+  // hero
+  heroLayout: HeroLayout;
+  heroTitle: string;
+  heroSubtitle: string;
+  heroTitleSize: number;
+  heroBarOn: boolean;
+  // drawing tool config
+  tool: Tool;
+  brushSize: number;
+  brushColor: "ink" | "bg" | "accent";
   mode: string;
 }
-
-export interface Zone { x: number; y: number; size: number }
 
 export const defaultBrandState: BrandState = {
   imageSrc: null,
   imageOpacity: 0.85,
+  imageInvert: false,
+  imageGrayscale: false,
+  imageBlend: "normal",
+  imageScale: 1,
   pixelSize: 16,
   zoneSize: 100,
   strokeOn: true,
@@ -130,13 +163,34 @@ export const defaultBrandState: BrandState = {
   sizeId: "p34_1200",
   textureSrc: null,
   textureOpacity: 0.5,
+  gridOn: false,
+  gridSize: 60,
+  gridOpacity: 0.18,
+  ringsOn: false,
+  ringsCount: 8,
+  ringsSpacing: 80,
+  geoPattern: "detection",
+  geoDensity: 24,
+  geoRotation: 0,
+  heroLayout: "centered",
+  heroTitle: "STUDIO",
+  heroSubtitle: "Brand · System · 2026",
+  heroTitleSize: 120,
+  heroBarOn: true,
+  tool: "pixelate",
+  brushSize: 18,
+  brushColor: "ink",
   mode: "circle-mapping",
 };
 
 interface Props {
   state: BrandState;
   zones: Zone[];
+  strokes: Stroke[];
   onAddZone: (z: Zone) => void;
+  onStrokeStart: (s: Stroke) => void;
+  onStrokeExtend: (pt: { x: number; y: number }) => void;
+  onStrokeCommit: () => void;
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
 }
 
@@ -159,29 +213,21 @@ function detectCircles(
 ): Detected[] {
   const { blockSize, threshold, maxCircles, minDistance, detectionMode, minRadius, maxRadius, sizeSeed } = state;
   let img: ImageData;
-  try {
-    img = ctx.getImageData(0, 0, w, h);
-  } catch {
-    return [];
-  }
+  try { img = ctx.getImageData(0, 0, w, h); } catch { return []; }
   const data = img.data;
   const cols = Math.floor(w / blockSize);
   const rows = Math.floor(h / blockSize);
   const scores: { x: number; y: number; score: number }[] = [];
-
   for (let by = 0; by < rows; by++) {
     for (let bx = 0; bx < cols; bx++) {
-      let sum = 0, sum2 = 0, min = 255, max = 0, count = 0;
+      let sum = 0, sum2 = 0, count = 0;
       for (let y = 0; y < blockSize; y += 2) {
         for (let x = 0; x < blockSize; x += 2) {
           const px = bx * blockSize + x;
           const py = by * blockSize + y;
           const i = (py * w + px) * 4;
           const l = (data[i] + data[i + 1] + data[i + 2]) / 3;
-          sum += l; sum2 += l * l;
-          if (l < min) min = l;
-          if (l > max) max = l;
-          count++;
+          sum += l; sum2 += l * l; count++;
         }
       }
       const mean = sum / count;
@@ -214,10 +260,15 @@ function detectCircles(
   return picked;
 }
 
-export function BrandCanvas({ state, zones, onAddZone, canvasRef }: Props) {
+function colorFor(c: "ink" | "bg" | "accent", pal: Palette): string {
+  return c === "ink" ? pal.ink : c === "bg" ? pal.bg : pal.accent;
+}
+
+export function BrandCanvas({ state, zones, strokes, onAddZone, onStrokeStart, onStrokeExtend, onStrokeCommit, canvasRef }: Props) {
   const imgRef = useRef<HTMLImageElement | null>(null);
   const texRef = useRef<HTMLImageElement | null>(null);
   const [tick, setTick] = useState(0);
+  const drawingRef = useRef(false);
 
   useEffect(() => {
     if (!state.imageSrc) { imgRef.current = null; setTick((n) => n + 1); return; }
@@ -251,13 +302,46 @@ export function BrandCanvas({ state, zones, onAddZone, canvasRef }: Props) {
     ctx.fillStyle = pal.bg;
     ctx.fillRect(0, 0, W, H);
 
+    // background image with filters + blend
     const img = imgRef.current;
     if (img && img.width > 0) {
       ctx.save();
       ctx.globalAlpha = state.imageOpacity;
-      const scale = Math.max(W / img.width, H / img.height);
+      if (state.imageBlend !== "normal") ctx.globalCompositeOperation = state.imageBlend;
+      const filters: string[] = [];
+      if (state.imageGrayscale) filters.push("grayscale(1)");
+      if (state.imageInvert) filters.push("invert(1)");
+      ctx.filter = filters.length ? filters.join(" ") : "none";
+      const scale = Math.max(W / img.width, H / img.height) * state.imageScale;
       const w = img.width * scale, h = img.height * scale;
       ctx.drawImage(img, (W - w) / 2, (H - h) / 2, w, h);
+      ctx.restore();
+    }
+
+    // grid
+    if (state.gridOn) {
+      ctx.save();
+      ctx.globalAlpha = state.gridOpacity;
+      ctx.strokeStyle = pal.ink;
+      ctx.lineWidth = 0.5;
+      const g = Math.max(8, state.gridSize);
+      for (let x = 0; x <= W; x += g) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+      for (let y = 0; y <= H; y += g) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+      ctx.restore();
+    }
+
+    // concentric rings
+    if (state.ringsOn) {
+      ctx.save();
+      ctx.globalAlpha = state.crosshairOpacity;
+      ctx.strokeStyle = pal.ink;
+      ctx.lineWidth = state.frameStroke;
+      const cx = W / 2, cy = H / 2;
+      for (let i = 1; i <= state.ringsCount; i++) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, i * state.ringsSpacing, 0, Math.PI * 2);
+        ctx.stroke();
+      }
       ctx.restore();
     }
 
@@ -292,6 +376,49 @@ export function BrandCanvas({ state, zones, onAddZone, canvasRef }: Props) {
       ctx.restore();
     }
 
+    // brush / shape strokes (drawing studio output)
+    if (strokes.length > 0) {
+      ctx.save();
+      for (const st of strokes) {
+        const col = colorFor(st.color, pal);
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.lineWidth = st.size;
+        if (st.tool === "eraser") {
+          ctx.globalCompositeOperation = "destination-out";
+          ctx.strokeStyle = "rgba(0,0,0,1)";
+        } else {
+          ctx.globalCompositeOperation = "source-over";
+          ctx.strokeStyle = col;
+          ctx.fillStyle = col;
+        }
+        if (st.tool === "brush" || st.tool === "eraser") {
+          if (st.pts.length < 2) {
+            if (st.pts[0]) { ctx.beginPath(); ctx.arc(st.pts[0].x, st.pts[0].y, st.size / 2, 0, Math.PI * 2); ctx.fill(); }
+          } else {
+            ctx.beginPath();
+            ctx.moveTo(st.pts[0].x, st.pts[0].y);
+            for (let i = 1; i < st.pts.length; i++) ctx.lineTo(st.pts[i].x, st.pts[i].y);
+            ctx.stroke();
+          }
+        } else if (st.tool === "line" && st.pts.length >= 2) {
+          ctx.beginPath();
+          ctx.moveTo(st.pts[0].x, st.pts[0].y);
+          ctx.lineTo(st.pts[st.pts.length - 1].x, st.pts[st.pts.length - 1].y);
+          ctx.stroke();
+        } else if (st.tool === "rect" && st.pts.length >= 2) {
+          const a = st.pts[0], b = st.pts[st.pts.length - 1];
+          ctx.strokeRect(Math.min(a.x, b.x), Math.min(a.y, b.y), Math.abs(b.x - a.x), Math.abs(b.y - a.y));
+        } else if (st.tool === "circle" && st.pts.length >= 2) {
+          const a = st.pts[0], b = st.pts[st.pts.length - 1];
+          ctx.beginPath();
+          ctx.arc(a.x, a.y, Math.hypot(b.x - a.x, b.y - a.y), 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
+      ctx.restore();
+    }
+
     ctx.save();
     ctx.globalAlpha = state.overlayOpacity;
     ctx.strokeStyle = pal.ink;
@@ -310,12 +437,8 @@ export function BrandCanvas({ state, zones, onAddZone, canvasRef }: Props) {
         const x = cx + Math.cos(ang) * spacing * i;
         const y = cy + Math.sin(ang) * spacing * i;
         centers.push({ x, y, r });
-        ctx.beginPath();
-        ctx.arc(x, y, r, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.arc(x, y, 2, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill();
         if (state.showLabels) ctx.fillText(`${Math.round(x)} · ${Math.round(y)}`, x + 6, y - 6);
       }
       if (state.intersectionsOn) {
@@ -334,6 +457,74 @@ export function BrandCanvas({ state, zones, onAddZone, canvasRef }: Props) {
           }
         }
       }
+    }
+
+    // geo patterns
+    if (state.geoPattern !== "detection") {
+      ctx.save();
+      ctx.lineWidth = state.shapeStroke;
+      ctx.strokeStyle = pal.ink;
+      ctx.fillStyle = pal.ink;
+      const cx = W / 2, cy = H / 2;
+      const rot = (state.geoRotation * Math.PI) / 180;
+      const rng = mulberry32(state.sizeSeed);
+      if (state.geoPattern === "radial") {
+        const n = state.geoDensity;
+        const R = Math.min(W, H) * 0.45;
+        for (let i = 0; i < n; i++) {
+          const a = rot + (Math.PI * 2 * i) / n;
+          ctx.beginPath();
+          ctx.moveTo(cx + Math.cos(a) * (state.minRadius * 4), cy + Math.sin(a) * (state.minRadius * 4));
+          ctx.lineTo(cx + Math.cos(a) * R, cy + Math.sin(a) * R);
+          ctx.stroke();
+          const rr = state.minRadius + rng() * (state.maxRadius - state.minRadius);
+          ctx.beginPath();
+          ctx.arc(cx + Math.cos(a) * R, cy + Math.sin(a) * R, rr, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      } else if (state.geoPattern === "concentric") {
+        for (let i = 1; i <= state.geoDensity; i++) {
+          ctx.beginPath();
+          ctx.arc(cx, cy, (i / state.geoDensity) * Math.min(W, H) * 0.48, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      } else if (state.geoPattern === "isometric") {
+        const step = Math.max(20, 600 / state.geoDensity);
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(rot);
+        for (let x = -W; x <= W; x += step) {
+          ctx.beginPath(); ctx.moveTo(x, -H); ctx.lineTo(x + H * 0.577, H); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(x, -H); ctx.lineTo(x - H * 0.577, H); ctx.stroke();
+        }
+        for (let y = -H; y <= H; y += step) {
+          ctx.beginPath(); ctx.moveTo(-W, y); ctx.lineTo(W, y); ctx.stroke();
+        }
+        ctx.restore();
+      } else if (state.geoPattern === "spiral") {
+        const turns = state.geoDensity / 4;
+        const steps = state.geoDensity * 40;
+        ctx.beginPath();
+        for (let i = 0; i < steps; i++) {
+          const t = i / steps;
+          const a = rot + t * Math.PI * 2 * turns;
+          const r = t * Math.min(W, H) * 0.48;
+          const x = cx + Math.cos(a) * r;
+          const y = cy + Math.sin(a) * r;
+          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      } else if (state.geoPattern === "grid-dots") {
+        const step = Math.max(20, 800 / state.geoDensity);
+        for (let y = step; y < H; y += step) {
+          for (let x = step; x < W; x += step) {
+            ctx.beginPath();
+            ctx.arc(x, y, Math.max(1, state.minRadius * 0.6), 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      }
+      ctx.restore();
     }
 
     // detection shapes + connections
@@ -379,7 +570,6 @@ export function BrandCanvas({ state, zones, onAddZone, canvasRef }: Props) {
       ctx.moveTo(W / 2, 0); ctx.lineTo(W / 2, H);
       ctx.stroke();
       ctx.setLineDash([]);
-      // star
       if (state.starSize > 0) {
         const cx = W / 2, cy = H / 2, s = state.starSize / 2;
         for (let i = 0; i < state.starPoints; i++) {
@@ -393,7 +583,6 @@ export function BrandCanvas({ state, zones, onAddZone, canvasRef }: Props) {
       ctx.restore();
     }
 
-    // square frame
     if (state.frameOn) {
       ctx.save();
       ctx.globalAlpha = state.crosshairOpacity;
@@ -414,6 +603,7 @@ export function BrandCanvas({ state, zones, onAddZone, canvasRef }: Props) {
       ctx.save();
       ctx.fillStyle = pal.ink;
       ctx.font = `${state.frameTextSize}px JetBrains Mono, monospace`;
+      ctx.textAlign = "left";
       ctx.fillText(state.frameText, 60, 80);
       ctx.textAlign = "right";
       ctx.fillText("Yordan Stoyanov", W - 60, 80);
@@ -421,6 +611,31 @@ export function BrandCanvas({ state, zones, onAddZone, canvasRef }: Props) {
       ctx.fillText("www.stoyanov.works", 60, H - 60);
       ctx.textAlign = "right";
       ctx.fillText("Sofia, Bulgaria", W - 60, H - 60);
+      ctx.restore();
+    }
+
+    // hero title overlay
+    if (state.heroTitle) {
+      ctx.save();
+      ctx.fillStyle = pal.ink;
+      const ts = state.heroTitleSize;
+      ctx.font = `900 ${ts}px JetBrains Mono, monospace`;
+      let tx = W / 2, ty = H / 2, align: CanvasTextAlign = "center";
+      if (state.heroLayout === "off-axis-left") { tx = W * 0.08; ty = H * 0.5; align = "left"; }
+      else if (state.heroLayout === "off-axis-right") { tx = W * 0.92; ty = H * 0.5; align = "right"; }
+      else if (state.heroLayout === "stacked-bottom") { tx = W / 2; ty = H * 0.85; align = "center"; }
+      else if (state.heroLayout === "split") { tx = W * 0.08; ty = H * 0.85; align = "left"; }
+      ctx.textAlign = align;
+      ctx.textBaseline = "middle";
+      ctx.fillText(state.heroTitle.toUpperCase(), tx, ty);
+      if (state.heroSubtitle) {
+        ctx.font = `${Math.max(10, ts * 0.18)}px JetBrains Mono, monospace`;
+        ctx.fillText(state.heroSubtitle, tx, ty + ts * 0.65);
+      }
+      if (state.heroBarOn) {
+        ctx.fillRect(40, H - 40, W - 80, 4);
+        ctx.fillRect(40, 36, W - 80, 4);
+      }
       ctx.restore();
     }
 
@@ -435,21 +650,39 @@ export function BrandCanvas({ state, zones, onAddZone, canvasRef }: Props) {
       ctx.drawImage(tex, (W - tw) / 2, (H - th) / 2, tw, th);
       ctx.restore();
     }
-  }, [state, zones, tick, canvasRef]);
+  }, [state, zones, strokes, tick, canvasRef]);
 
   useEffect(() => { draw(); }, [draw]);
 
-  const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+  const toCanvasCoords = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current!;
     const rect = canvas.getBoundingClientRect();
-    const sx = canvas.width / rect.width;
-    const sy = canvas.height / rect.height;
-    onAddZone({
-      x: (e.clientX - rect.left) * sx,
-      y: (e.clientY - rect.top) * sy,
-      size: state.zoneSize,
-    });
+    return {
+      x: (e.clientX - rect.left) * (canvas.width / rect.width),
+      y: (e.clientY - rect.top) * (canvas.height / rect.height),
+    };
+  };
+
+  const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const pt = toCanvasCoords(e);
+    if (state.tool === "pixelate") {
+      onAddZone({ x: pt.x, y: pt.y, size: state.zoneSize });
+      return;
+    }
+    drawingRef.current = true;
+    (e.target as HTMLCanvasElement).setPointerCapture(e.pointerId);
+    onStrokeStart({ tool: state.tool, color: state.brushColor, size: state.brushSize, pts: [pt] });
+  };
+
+  const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!drawingRef.current) return;
+    onStrokeExtend(toCanvasCoords(e));
+  };
+
+  const onPointerUp = () => {
+    if (!drawingRef.current) return;
+    drawingRef.current = false;
+    onStrokeCommit();
   };
 
   const preset = SIZE_PRESETS.find((p) => p.id === state.sizeId) ?? SIZE_PRESETS[0];
@@ -461,8 +694,11 @@ export function BrandCanvas({ state, zones, onAddZone, canvasRef }: Props) {
           ref={canvasRef}
           width={preset.w}
           height={preset.h}
-          onClick={handleClick}
-          className="block h-auto max-h-full w-auto max-w-full cursor-crosshair border border-border"
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
+          className="block h-auto max-h-full w-auto max-w-full cursor-crosshair border border-border touch-none"
           style={{ aspectRatio: `${preset.w}/${preset.h}` }}
         />
       </div>
