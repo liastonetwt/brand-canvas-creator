@@ -81,6 +81,7 @@ const TAB_PRESETS: Record<Tab, Partial<BrandState>> = {
     heroTitleSize: 140, heroLayout: "stacked-bottom", heroBarOn: true,
     tool: "pixelate",
   },
+  "Motion Track": {},
 };
 
 function makeStateForTab(tab: Tab): BrandState {
