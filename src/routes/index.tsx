@@ -10,6 +10,7 @@ import {
   SIZE_PRESETS,
   defaultBrandState,
 } from "@/components/brand-canvas";
+import { MotionTrackPanel } from "@/components/motion-track";
 import { Section, Toggle, ActionButton } from "@/components/ui/section";
 import { SliderRow } from "@/components/ui/slider-row";
 import skullAsset from "@/assets/preset-skull.webp.asset.json";
@@ -29,7 +30,7 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
-const TABS = ["Circle Mapping", "Drawing Studio", "Geo-Generator", "Hero Compositions"] as const;
+const TABS = ["Circle Mapping", "Drawing Studio", "Geo-Generator", "Hero Compositions", "Motion Track"] as const;
 type Tab = typeof TABS[number];
 
 const PRESET_IMAGES: { url: string; label: string }[] = [
@@ -80,6 +81,7 @@ const TAB_PRESETS: Record<Tab, Partial<BrandState>> = {
     heroTitleSize: 140, heroLayout: "stacked-bottom", heroBarOn: true,
     tool: "pixelate",
   },
+  "Motion Track": {},
 };
 
 function makeStateForTab(tab: Tab): BrandState {
@@ -312,6 +314,7 @@ function Index() {
         </div>
       </header>
 
+      {tab === "Motion Track" ? <MotionTrackPanel /> : (
       <div className="flex flex-1 min-h-0">
         <aside className="w-[320px] shrink-0 border-r border-border bg-surface overflow-y-auto">
           <div className="px-4 pt-4 pb-3 space-y-2">
@@ -554,6 +557,7 @@ function Index() {
           />
         </main>
       </div>
+      )}
 
       <footer className="border-t border-border px-5 h-7 flex items-center justify-between text-[10px] text-muted-foreground shrink-0">
         <span>{preset.w} × {preset.h} / {palette.label} / tool: {s.tool}</span>
