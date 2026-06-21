@@ -557,6 +557,7 @@ function Index() {
           />
         </main>
       </div>
+      )}
 
       <footer className="border-t border-border px-5 h-7 flex items-center justify-between text-[10px] text-muted-foreground shrink-0">
         <span>{preset.w} × {preset.h} / {palette.label} / tool: {s.tool}</span>
