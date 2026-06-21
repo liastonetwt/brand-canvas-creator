@@ -775,7 +775,7 @@ export function MotionTrackPanel() {
     let mimeType = "video/webm;codecs=vp9";
     if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = "video/webm";
     const rec = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: cfg.recordBitrate * 1_000_000 });
-    const chunks: MtBlob[] = [];
+    const chunks: Blob[] = [];
     rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
     rec.onstop = () => {
       const blob = new Blob(chunks, { type: "video/webm" });
