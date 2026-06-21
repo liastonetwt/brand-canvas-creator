@@ -103,7 +103,7 @@ const DEFAULTS: MTConfig = {
   recordFPS: 30, recordBitrate: 8, exportMultiplier: 1,
 };
 
-interface Blob {
+interface MtBlob {
   x: number; y: number; area: number;
   minX: number; maxX: number; minY: number; maxY: number;
   width: number; height: number;
@@ -124,7 +124,7 @@ function hexToRgba(hex: string, alpha = 1): string {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
-function floodFill(binary: Uint8Array, labels: Int32Array, w: number, h: number, sx: number, sy: number, label: number): Blob {
+function floodFill(binary: Uint8Array, labels: Int32Array, w: number, h: number, sx: number, sy: number, label: number): MtBlob {
   const stack: [number, number][] = [[sx, sy]];
   let area = 0, sumX = 0, sumY = 0;
   let minX = sx, maxX = sx, minY = sy, maxY = sy;
@@ -147,7 +147,7 @@ function floodFill(binary: Uint8Array, labels: Int32Array, w: number, h: number,
   };
 }
 
-function detectBlobs(video: HTMLVideoElement, canvas: HTMLCanvasElement, cfg: MTConfig): Blob[] {
+function detectBlobs(video: HTMLVideoElement, canvas: HTMLCanvasElement, cfg: MTConfig): MtBlob[] {
   const scale = cfg.resolution;
   const pw = Math.max(1, Math.floor(canvas.width * scale));
   const ph = Math.max(1, Math.floor(canvas.height * scale));
@@ -162,7 +162,7 @@ function detectBlobs(video: HTMLVideoElement, canvas: HTMLCanvasElement, cfg: MT
     binary[i / 4] = b > cfg.threshold ? 1 : 0;
   }
   const labels = new Int32Array(pw * ph);
-  const blobs: Blob[] = [];
+  const blobs: MtBlob[] = [];
   for (let y = 0; y < ph; y++) {
     for (let x = 0; x < pw; x++) {
       const idx = y * pw + x;
@@ -183,7 +183,7 @@ function detectBlobs(video: HTMLVideoElement, canvas: HTMLCanvasElement, cfg: MT
   return result;
 }
 
-function matchBlobs(curr: Blob[], prev: Blob[], smoothing: number): Blob[] {
+function matchBlobs(curr: MtBlob[], prev: MtBlob[], smoothing: number): MtBlob[] {
   if (!prev.length) return curr.map(b => ({ ...b, id: Math.random(), history: [{ x: b.x, y: b.y }] }));
   const alpha = smoothing;
   const maxDist = 100;
@@ -223,7 +223,7 @@ function catmullRom(pts: { x: number; y: number }[], res = 8) {
   return out;
 }
 
-function drawBoxes(ctx: CanvasRenderingContext2D, blobs: Blob[], c: MTConfig) {
+function drawBoxes(ctx: CanvasRenderingContext2D, blobs: MtBlob[], c: MTConfig) {
   ctx.strokeStyle = hexToRgba(c.boxColor, c.boxOpacity / 100);
   ctx.lineWidth = c.boxWidth;
   blobs.forEach(b => {
@@ -243,7 +243,7 @@ function drawBoxes(ctx: CanvasRenderingContext2D, blobs: Blob[], c: MTConfig) {
   });
 }
 
-function drawMarkers(ctx: CanvasRenderingContext2D, blobs: Blob[], c: MTConfig) {
+function drawMarkers(ctx: CanvasRenderingContext2D, blobs: MtBlob[], c: MTConfig) {
   ctx.strokeStyle = hexToRgba(c.markerColor, c.markerOpacity / 100);
   ctx.fillStyle = hexToRgba(c.markerColor, c.markerOpacity / 100);
   ctx.lineWidth = 1;
@@ -266,7 +266,7 @@ function drawMarkers(ctx: CanvasRenderingContext2D, blobs: Blob[], c: MTConfig) 
   });
 }
 
-function drawConnections(ctx: CanvasRenderingContext2D, blobs: Blob[], W: number, H: number, c: MTConfig, time: number) {
+function drawConnections(ctx: CanvasRenderingContext2D, blobs: MtBlob[], W: number, H: number, c: MTConfig, time: number) {
   const avg = blobs.reduce((s, b) => s + b.area, 0) / Math.max(1, blobs.length);
   const maxDist = Math.sqrt(avg) * 3 + 200;
   ctx.strokeStyle = hexToRgba(c.connectionColor, c.connectionOpacity / 100);
@@ -300,9 +300,9 @@ function drawConnections(ctx: CanvasRenderingContext2D, blobs: Blob[], W: number
       break;
     case "NEAREST":
       blobs.forEach((b, i) => {
-        let cl: Blob | null = null, md = Infinity;
+        let cl: MtBlob | null = null, md = Infinity;
         blobs.forEach((b2, j) => { if (i === j) return; const d = Math.hypot(b.x - b2.x, b.y - b2.y); if (d < md) { md = d; cl = b2; } });
-        if (cl) drawLine(b.x, b.y, (cl as Blob).x, (cl as Blob).y);
+        if (cl) drawLine(b.x, b.y, (cl as MtBlob).x, (cl as MtBlob).y);
       });
       break;
     case "CHAIN":
@@ -315,9 +315,9 @@ function drawConnections(ctx: CanvasRenderingContext2D, blobs: Blob[], W: number
       break;
     case "RADIAL":
       blobs.forEach((b, i) => {
-        let cl: Blob | null = null, md = Infinity;
+        let cl: MtBlob | null = null, md = Infinity;
         blobs.forEach((b2, j) => { if (i === j) return; const d = Math.hypot(b.x - b2.x, b.y - b2.y); if (d < md) { md = d; cl = b2; } });
-        if (cl) drawLine(b.x, b.y, (cl as Blob).x, (cl as Blob).y);
+        if (cl) drawLine(b.x, b.y, (cl as MtBlob).x, (cl as MtBlob).y);
         drawLine(hub.x, hub.y, b.x, b.y);
       });
       break;
@@ -325,7 +325,7 @@ function drawConnections(ctx: CanvasRenderingContext2D, blobs: Blob[], W: number
   ctx.setLineDash([]); ctx.lineDashOffset = 0;
 }
 
-function drawTrail(ctx: CanvasRenderingContext2D, blobs: Blob[], c: MTConfig) {
+function drawTrail(ctx: CanvasRenderingContext2D, blobs: MtBlob[], c: MTConfig) {
   ctx.strokeStyle = hexToRgba(c.trailColor, c.trailOpacity / 100);
   ctx.lineWidth = c.trailWidth;
   if (c.trailMode === "SPATIAL") {
@@ -459,7 +459,7 @@ function drawFrameText(ctx: CanvasRenderingContext2D, W: number, H: number, c: M
   ctx.restore();
 }
 
-function drawLabels(ctx: CanvasRenderingContext2D, blobs: Blob[], c: MTConfig) {
+function drawLabels(ctx: CanvasRenderingContext2D, blobs: MtBlob[], c: MTConfig) {
   ctx.save();
   ctx.font = `${c.labelFontSize}px "Space Mono", monospace`;
   ctx.fillStyle = hexToRgba(c.labelColor, 1);
@@ -479,7 +479,7 @@ function drawLabels(ctx: CanvasRenderingContext2D, blobs: Blob[], c: MTConfig) {
   ctx.restore();
 }
 
-function drawStatus(ctx: CanvasRenderingContext2D, blobs: Blob[], fps: number, H: number) {
+function drawStatus(ctx: CanvasRenderingContext2D, blobs: MtBlob[], fps: number, H: number) {
   ctx.save();
   ctx.font = `9px "Space Mono", monospace`;
   ctx.fillStyle = "rgba(255,255,255,0.6)";
@@ -487,7 +487,7 @@ function drawStatus(ctx: CanvasRenderingContext2D, blobs: Blob[], fps: number, H
   ctx.restore();
 }
 
-function drawMetrics(ctx: CanvasRenderingContext2D, blobs: Blob[], W: number, H: number) {
+function drawMetrics(ctx: CanvasRenderingContext2D, blobs: MtBlob[], W: number, H: number) {
   ctx.save();
   ctx.font = `9px "Space Mono", monospace`;
   ctx.fillStyle = "rgba(255,255,255,0.7)";
@@ -557,7 +557,7 @@ export function MotionTrackPanel() {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const rafRef = useRef<number | null>(null);
-  const prevBlobs = useRef<Blob[]>([]);
+  const prevBlobs = useRef<MtBlob[]>([]);
   const frameCount = useRef(0);
   const fpsRef = useRef({ frames: 0, last: performance.now(), value: 0 });
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -775,7 +775,7 @@ export function MotionTrackPanel() {
     let mimeType = "video/webm;codecs=vp9";
     if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = "video/webm";
     const rec = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: cfg.recordBitrate * 1_000_000 });
-    const chunks: Blob[] = [];
+    const chunks: MtBlob[] = [];
     rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
     rec.onstop = () => {
       const blob = new Blob(chunks, { type: "video/webm" });
