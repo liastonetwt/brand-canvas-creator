@@ -10,6 +10,7 @@ import {
   SIZE_PRESETS,
   defaultBrandState,
 } from "@/components/brand-canvas";
+import { MotionTrackPanel } from "@/components/motion-track";
 import { Section, Toggle, ActionButton } from "@/components/ui/section";
 import { SliderRow } from "@/components/ui/slider-row";
 import skullAsset from "@/assets/preset-skull.webp.asset.json";
@@ -29,7 +30,7 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
-const TABS = ["Circle Mapping", "Drawing Studio", "Geo-Generator", "Hero Compositions"] as const;
+const TABS = ["Circle Mapping", "Drawing Studio", "Geo-Generator", "Hero Compositions", "Motion Track"] as const;
 type Tab = typeof TABS[number];
 
 const PRESET_IMAGES: { url: string; label: string }[] = [
