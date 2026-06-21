@@ -314,6 +314,7 @@ function Index() {
         </div>
       </header>
 
+      {tab === "Motion Track" ? <MotionTrackPanel /> : (
       <div className="flex flex-1 min-h-0">
         <aside className="w-[320px] shrink-0 border-r border-border bg-surface overflow-y-auto">
           <div className="px-4 pt-4 pb-3 space-y-2">
